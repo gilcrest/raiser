@@ -20,7 +20,11 @@ If an unexpected exception occurs, the calling application will receive the same
  - SQLCODE = -20763
  - SQLERRM = "|logID:1234|errID:-1476|No Data Found"
 
-An unexpected error has occured, the unique error message ID is 1234, please contact support referencing this ID.
+In this case, the calling application can return an error message like "An unexpected error has occurred, the unique error message ID is 1234, please contact support referencing this ID."
 
 Support teams can then work with development teams to determine the root cause of this exception by taking unique logger ID and looking up the call stack on the logger_logs table.
+
+As noted above, raiser leverages logger, and as such you are able add all the same elements used in the logger.log_error procedure -- which means you are also able to capture any parameter values, scope and any additional context you may want to throw in there.
+
+Some code samples of how to use raiser are:
 
