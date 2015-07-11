@@ -16,27 +16,47 @@ create or replace PACKAGE raiser AS
     error_id                         logger_error_lkup.error_id%type,
     error_text                       varchar2(490));
 
-  -- ------------------------------------------------------------------------------------------------
+  -- ----------------------------------------------------------------------------------------------
+  -- proc is called by the logger.log_error PLUGIN_FN_ERROR plugin
+  -- ----------------------------------------------------------------------------------------------
+  procedure logger_raiser_plugin (p_rec in logger.rec_logger_log);
+
+  -- ----------------------------------------------------------------------------------------------
+  -- Function takes in the SQLERRM from a thrown exception (using one of the raiser.rle procs)
+  -- as a varchar2 and parses it based on the consistent format used by raiser.rle
+  -- ----------------------------------------------------------------------------------------------
+  function getErrorDetails (p_sqlerrm in varchar2) return error_rt;
+
+  -- ----------------------------------------------------------------------------------------------
   -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
   --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
   --  the caller in the exception message as well as an optional persisted error message that is 
   --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
   --   ID and the optional persistent lookup ID will start your exception message text using the 
   --   following consistent format: |logID:1234|errID:5678|
-  -- ------------------------------------------------------------------------------------------------
-  procedure rle ( -- rle = raise and log error
+  -- ----------------------------------------------------------------------------------------------
+  procedure raise_anticipated_exception (
     p_text                           in varchar2         default null,
     p_scope                          in varchar2         default null,
     p_extra                          in clob             default null,
     p_params                         in logger.tab_param default logger.gc_empty_tab_param,
     p_error_id                       in logger_error_lkup.error_id%type);
     
-  -- ------------------------------------------------------------------------------------------------
-  -- proc is called by the logger.log_error PLUGIN_FN_ERROR plugin
-  -- ------------------------------------------------------------------------------------------------
-  procedure logger_raiser_plugin (p_rec in logger.rec_logger_log);
-
-  function getErrorDetails (p_sqlerrm in varchar2) return error_rt;
+  -- ----------------------------------------------------------------------------------------------
+  -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --   ID and the optional persistent lookup ID will start your exception message text using the 
+  --   following consistent format: |logID:1234|errID:5678|
+  -- ----------------------------------------------------------------------------------------------
+  procedure raise_unanticipated_exception (
+    p_text                           in varchar2         default null,
+    p_scope                          in varchar2         default null,
+    p_extra                          in clob             default null,
+    p_params                         in logger.tab_param default logger.gc_empty_tab_param,
+    p_sqlcode                        in number,
+    p_sqlerrm                        in varchar2);
 
 end raiser;
 /
@@ -49,9 +69,9 @@ create or replace PACKAGE BODY raiser AS
 --  1. Package to ...
 --
 
--- ------------------------------------------------------------------------------------------------
--- PRIVATE proc to insert error data into xref table 
--- ------------------------------------------------------------------------------------------------
+  -- ------------------------------------------------------------------------------------------------
+  -- PRIVATE proc to insert error data into xref table 
+  -- ------------------------------------------------------------------------------------------------
   procedure insert_logger_error_xref (p_logger_error_xref_rt IN logger_error_xref%rowtype) AS
   begin
     insert into logger_error_xref (logger_id,
@@ -68,44 +88,9 @@ create or replace PACKAGE BODY raiser AS
                                     sysdate); 
   end;
 
--- ------------------------------------------------------------------------------------------------
--- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
---  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
---  the caller in the exception message as well as an optional persisted error message that is 
---  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
---   ID and the optional persistent lookup ID will start your exception message text using the 
---   following consistent format: |logID:1234|errID:5678|
--- ------------------------------------------------------------------------------------------------
-  procedure rle ( -- rle = raise and log error
-    p_text                           in varchar2         default null,
-    p_scope                          in varchar2         default null,
-    p_extra                          in clob             default null,
-    p_params                         in logger.tab_param default logger.gc_empty_tab_param,
-    p_error_id                       in logger_error_lkup.error_id%type) AS
-
-  /* Local Variables */
-  v_error_id                      varchar2(100);
-
-  /* Exceptions */
-  e_null_error_id                 exception;
-
-  begin
-    if (p_error_id is null) then
-      raise e_null_error_id;
-    end if;
-    
-    v_error_id := ('|'||p_error_id||'|');
-    logger.log_error(p_text => (v_error_id || p_text),
-                     p_scope => p_scope,
-                     p_extra => p_extra,
-                     p_params => p_params);
-
-  exception
-    when e_null_error_id 
-      then raise_application_error(-20000,'p_error_id input parameter cannot be null');
-
-  end rle;
-
+  -- ----------------------------------------------------------------------------------------------
+  -- proc is called by the logger.log_error PLUGIN_FN_ERROR plugin
+  -- ----------------------------------------------------------------------------------------------
   procedure logger_raiser_plugin (p_rec in logger.rec_logger_log) AS
   
   /* Local Variables */
@@ -186,11 +171,100 @@ create or replace PACKAGE BODY raiser AS
     end;
 
     v_rec_error.error_text := substr(p_sqlerrm,instr(p_sqlerrm,'|',-1,1)+1);
-    SYS.dbms_output.put_line('error_text = '||v_rec_error.error_text);
+    dbms_output.put_line('error_text = '||v_rec_error.error_text);
 
     return v_rec_error;
 
   end getErrorDetails;
 
+  -- ------------------------------------------------------------------------------------------------
+  -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --   ID and the optional persistent lookup ID will start your exception message text using the 
+  --   following consistent format: |logID:1234|errID:5678|
+  -- ------------------------------------------------------------------------------------------------
+  procedure raise_anticipated_exception (
+    p_text                           in varchar2         default null,
+    p_scope                          in varchar2         default null,
+    p_extra                          in clob             default null,
+    p_params                         in logger.tab_param default logger.gc_empty_tab_param,
+    p_error_id                       in logger_error_lkup.error_id%type) AS
+
+  /* Local Variables */
+  v_error_id                       varchar2(100);
+
+  /* Exceptions */
+  e_null_error_id                  exception;
+
+  begin
+    if (p_error_id is null) then
+      raise e_null_error_id;
+    end if;
+    
+    v_error_id := ('|'||p_error_id||'|');
+    logger.log_error(p_text => (v_error_id || p_text),
+                     p_scope => p_scope,
+                     p_extra => p_extra,
+                     p_params => p_params);
+
+  exception
+    when e_null_error_id 
+      then raise_application_error(-20000,'p_error_id input parameter cannot be null, when using raise_anticipated_exception');
+
+  end raise_anticipated_exception;
+
+  -- ------------------------------------------------------------------------------------------------
+  -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --   ID and the optional persistent lookup ID will start your exception message text using the 
+  --   following consistent format: |logID:1234|errID:5678|
+  -- ------------------------------------------------------------------------------------------------
+  procedure raise_unanticipated_exception (
+    p_text                           in varchar2         default null,
+    p_scope                          in varchar2         default null,
+    p_extra                          in clob             default null,
+    p_params                         in logger.tab_param default logger.gc_empty_tab_param,
+    p_sqlcode                        in number,
+    p_sqlerrm                        in varchar2) AS
+
+  /* Local Variables */
+  v_sqlcode                        varchar2(100);
+  v_sqlerrm                        varchar2(512); -- SQLERRM max length is 512 bytes
+
+  /* Exceptions */
+  e_null_sqlcode                   exception;
+  e_null_sqlerrm                   exception;
+
+  begin
+    if (p_sqlcode is null) then
+      raise e_null_sqlcode;
+    end if;
+
+    if (p_sqlerrm is null) then
+      raise e_null_sqlerrm;
+    end if;
+    
+    v_sqlcode := ('|'||to_char(p_sqlcode)||'|');
+    v_sqlerrm := substr(p_sqlerrm,1,512);
+
+    logger.log_error(p_text => (v_sqlcode || v_sqlerrm),
+                     p_scope => p_scope,
+                     p_extra => p_extra,
+                     p_params => p_params);
+
+  exception
+    when e_null_sqlcode 
+      then raise_application_error(-20000,'p_sqlcode input parameter cannot be null, when using raise_unanticipated_exception');
+
+    when e_null_sqlerrm 
+      then raise_application_error(-20000,'p_sqlerrm input parameter cannot be null, when using raise_unanticipated_exception');
+
+  end raise_unanticipated_exception;
+  /
+  
+
 end raiser;
-/
