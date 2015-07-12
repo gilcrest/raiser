@@ -28,3 +28,27 @@ As noted above, **raiser** leverages logger, and as such you are able add all th
 
 Some code samples of how to use raiser are:
 
+##Catching, logging and raising an "unanticipated" exception##
+``` plsql
+declare
+  v_0                           number := 0;
+  v_result                      number;
+begin
+  -- ----------------------------------------------------------------------------------------------
+  -- Code will never get to dbms_output line as the next line will yield a divide by zero exception
+  -- ----------------------------------------------------------------------------------------------
+  v_result := 100 / v_0;
+  dbms_output.put_line('v_result = '||v_result);
+
+exception
+  when others then
+  -- ----------------------------------------------------------------------------------------------
+  -- This is the simplest, easiest form to catch unanticipated errors, if you want to add more info
+  --  to the log that this exception will generate, you can add all the normal logger parameters,
+  --  i.e. p_text, p_scope, p_extra and p_params
+  -- ----------------------------------------------------------------------------------------------
+    raiser.raise_unanticipated_exception (
+      p_sqlcode => SQLCODE,
+      p_sqlerrm => SQLERRM);
+end;
+```
