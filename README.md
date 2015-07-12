@@ -31,14 +31,14 @@ Some code samples of how to use raiser are:
 ##Catching, logging and raising an "unanticipated" exception##
 ``` plsql
 declare
-  v_0                           number := 0;
+  c_0                  CONSTANT number := 0;
   v_result                      number;
 begin
   -- ------------------------------------------------------
   -- Code will never get to dbms_output line as 
   -- the next line will yield a divide by zero exception
   -- ------------------------------------------------------
-  v_result := 100 / v_0;
+  v_result := 100 / c_0;
   dbms_output.put_line('v_result = '||v_result);
 
 exception
