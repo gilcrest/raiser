@@ -28,7 +28,9 @@ As noted above, **raiser** leverages logger, and as such you are able add all th
 
 Some code samples of how to use raiser are:
 
-##Catching, logging and raising an "unanticipated" exception##
+#Catching, logging and raising an "unanticipated" exception#
+
+`Example below shows an example of an Oracle "zero divide" exception being thrown (intentionally).`
 ``` plsql
 declare
   c_0                  CONSTANT number := 0;
