@@ -32,7 +32,7 @@ Some code samples of how to use raiser are:
 
 #Catching, logging and raising an "unanticipated" exception#
 
-> **Note:** Example below shows an example of an Oracle "zero divide" exception being thrown (intentionally).
+> **Note:** Example below shows an example of an Oracle "zero divide" exception being thrown (intentionally) and caught in the "when others" exception block.
 
 ``` plsql
 declare
