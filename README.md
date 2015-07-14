@@ -15,7 +15,7 @@ For expected errors (validations typically), the format of the message returned 
 
 As you can see, the SQLERRM error message has the unique Logger ID from logger, your given (arbitrary) Error ID and Error Text in a JSON object format (as text) for easier application interoperability.  Different calling apps (java, javascript, APEX, python, pl/sql, etc.) will be able to parse this message and display it properly to the user, i.e.
 
- - "*Error 5678, Dear User, you put in bad data, please don't do that.*"
+ - "*Error 1234, Dear User, you put in bad data, please don't do that.*"
 
 If an unexpected exception occurs, the calling application will receive the same SQLCODE, however, this time the Oracle SQLCODE will be present in the "errID:" field with a negative integer 
 
