@@ -31,7 +31,6 @@ As noted above, **raiser** leverages logger, and as such you are able add all th
 Some code samples of how to use raiser are:
 
 ----------
-
 #Catching, logging and raising exceptions#
 
 > **Note:** Procedure below is used in subsequent examples to give an example of an Oracle "zero divide" exception being thrown (intentionally) as an "unanticipated" exception and caught in the "when others" exception block, as well as a typical input data "anticipated" business validation example.
@@ -83,8 +82,6 @@ exception
   -- ------------------------------------------------------
   when others then
     raiser.raise_unanticipated_exception (
-      p_text => 'helpful text that will give this error some context',
-      p_scope => 'raiser_demo',
       p_sqlcode => SQLCODE,
       p_sqlerrm => SQLERRM);
 end;
