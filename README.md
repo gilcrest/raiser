@@ -34,7 +34,7 @@ Some code samples of how to use raiser are:
 
 #Catching, logging and raising exceptions#
 
-> **Note:** Procedure below is used in subsequent examples to give an example of an Oracle "zero divide" exception being thrown (intentionally) as an "unanticipated" exception and caught in the "when others" exception block, as well as 
+> **Note:** Procedure below is used in subsequent examples to give an example of an Oracle "zero divide" exception being thrown (intentionally) as an "unanticipated" exception and caught in the "when others" exception block, as well as a typical input data "anticipated" business validation example.
 
 ``` plsql
 create or replace procedure raiser_demo (p_some_parameter_to_validate IN varchar2) as
