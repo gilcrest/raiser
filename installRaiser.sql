@@ -278,7 +278,7 @@ create or replace PACKAGE BODY                                                  
     -- --------------------------------------------------------------------------------------------
     -- Get errorText and set value in record
     -- --------------------------------------------------------------------------------------------
---    v_rec_error.error_text := apex_json.get_varchar2(p_path=>'errorText');
+    v_rec_error.error_text := apex_json.get_varchar2(p_path=>'errorText');
 
     return v_rec_error;
 
