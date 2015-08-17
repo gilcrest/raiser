@@ -101,9 +101,13 @@ end;
 Which will yield the following results:
 ``` plsql
 Error report -
-ORA-20723: {"loggerID":16387,"errorID":1234,"errorText":"You put in bad data, don't do that"}
+ORA-20723: {
+"loggerID":17634
+,"errorID":1234
+,"errorText":"You put in bad data, don\u0027t do that"
+}
 ORA-06512: at "DEMO.RAISER_DEMO", line 37
-ORA-06512: at line 3
+ORA-06512: at line 2
 ```
 To execute the above procedure to yield an "unanticipated" exception (i.e. you forgot something, somewhere in your code and you want to catch and raise it to end users), run the following code snippet, which will get past the string validation, but hit a div 0 oracle exception:
 ``` plsql
@@ -114,10 +118,14 @@ end;
 Which yields the following:
 ``` plsql
 Error report -
-ORA-20723: {"loggerID":16385,"errorID":-1476,"errorText":"divisor is equal to zero"}
+ORA-20723: {
+"loggerID":17636
+,"errorID":-1476
+,"errorText":"divisor is equal to zero"
+}
 ORA-06512: at "DEMO.LOGGER", line 798
 ORA-06512: at "DEMO.LOGGER", line 1222
-ORA-06512: at "DEMO.RAISER", line 265
+ORA-06512: at "DEMO.RAISER", line 281
 ORA-06512: at "DEMO.RAISER_DEMO", line 47
 ORA-01476: divisor is equal to zero
 ORA-06512: at line 2
