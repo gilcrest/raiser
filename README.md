@@ -53,7 +53,7 @@ begin
 
   if (p_some_parameter_to_validate != 'some string that is ok to continue') then
     raiser.raise_anticipated_exception (
-      p_text => 'helpful text that will give this error some context',
+      p_text => 'You put in bad data, don''t do that',
       p_scope => c_scope,
       p_error_id => 1234);
   end if;
