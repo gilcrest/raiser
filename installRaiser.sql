@@ -170,6 +170,7 @@ create or replace PACKAGE BODY                                                  
   v_3rd_pipe_position              integer;
   v_errorID_substr_length          integer;
   v_errorText_substr_length        integer;
+  v_sqlerrm                        varchar2(1000);
   
   begin
     -- --------------------------------------------------------------------------------------------
@@ -224,45 +225,60 @@ create or replace PACKAGE BODY                                                  
     v_logger_error_xref_rt.update_user_id := v_logger_logs_rt.user_name;
     v_logger_error_xref_rt.update_date := v_logger_logs_rt.time_stamp;
 
---    dbms_output.put_line('Predefined Error: |logID:'||p_rec.id||'|errID:'||v_error_id||'|'||v_text_minus_error_id);
-
     insert_logger_error_xref(p_logger_error_xref_rt => v_logger_error_xref_rt);
 
-    raise_application_error(-20723,'{"loggerID":'||p_rec.id||',"errorID":'||v_error_id||',"errorText":"'||v_error_text||'"}');
+    v_sqlerrm := getJSONerrorString (p_logger_id => p_rec.id,
+                                     p_error_id => v_error_id,
+                                     p_error_text => v_error_text);
+
+    raise_application_error(-20723,v_sqlerrm);
 
   end logger_raiser_plugin;
 
   -- ---------------------------------------------------------------------------------------------
   -- Function takes in the SQLERRM as a varchar2 from a thrown exception, using either the 
   --  raise_anticipated_exception or raise_unanticipated_exception procs
-  --  and parses it based on the consistent format used
-  -- TODO - this needs to use APEX_JSON.parse to parse this - will fix this ASAP
+  --  and parses it based on the JSON format used as part of the logger_raiser_plugin
   -- ---------------------------------------------------------------------------------------------
-  FUNCTION getErrorDetails (p_sqlerrm in varchar2) return error_rt AS
+  FUNCTION getErrorDetails (p_sqlerrm in varchar2)
+    return error_rt AS
 
   /* Record Type */
   v_rec_error                      error_rt;
+  v_1st_curly_position             integer;
+  v_sqlerrm                        varchar2(1000);
                                
   begin
-    dbms_output.put_line('p_sqlerrm = '||p_sqlerrm);
+
+    -- ---------------------------------------------------------------------------------------------------
     -- sqlerrm format: 'ORA-20723: {"loggerID":143,"errorID":-1476,"errorText":"divisor is equal to zero"}
+    -- ---------------------------------------------------------------------------------------------------
+    dbms_output.put_line('p_sqlerrm = '||p_sqlerrm);
 
-      v_rec_error.logger_id := substr(p_sqlerrm,instr(p_sqlerrm,':',1,1)+1,instr(p_sqlerrm,',',1,1)-instr(p_sqlerrm,':',1,1));
---    v_rec_error.logger_id := substr(p_sqlerrm,instr(p_sqlerrm,'|',1,1)+7,instr(p_sqlerrm,'|',1,2)-instr(p_sqlerrm,'|',1,1)-7);
-    dbms_output.put_line('logger_id = '||v_rec_error.logger_id);
+    v_1st_curly_position := instr(p_sqlerrm,'{',1,1);
 
-    begin
-      v_rec_error.error_id := substr(p_sqlerrm,instr(p_sqlerrm,'|',1,2)+7,instr(p_sqlerrm,'|',1,3)-instr(p_sqlerrm,'|',1,2)-7);
-      dbms_output.put_line('error_id = '||v_rec_error.error_id);
-    exception
-      when value_error
-        then
-          v_rec_error.error_id := null;
-          dbms_output.put_line('error_id (null) = '||v_rec_error.error_id);          
-    end;
+    dbms_output.put_line('v_1st_curly_position = '||v_1st_curly_position);
 
-    v_rec_error.error_text := substr(p_sqlerrm,instr(p_sqlerrm,'|',-1,1)+1);
-    dbms_output.put_line('error_text = '||v_rec_error.error_text);
+    v_sqlerrm := substr(p_sqlerrm,v_1st_curly_position);
+
+    dbms_output.put_line('v_sqlerrm = '||v_sqlerrm);
+
+    apex_json.parse(v_sqlerrm);
+
+    -- --------------------------------------------------------------------------------------------
+    -- Get loggerID and set value in record
+    -- --------------------------------------------------------------------------------------------
+    v_rec_error.logger_id := apex_json.get_number(p_path=>'loggerID');
+
+    -- --------------------------------------------------------------------------------------------
+    -- Get errorID and set value in record
+    -- --------------------------------------------------------------------------------------------
+    v_rec_error.error_id := apex_json.get_number(p_path=>'errorID');
+
+    -- --------------------------------------------------------------------------------------------
+    -- Get errorText and set value in record
+    -- --------------------------------------------------------------------------------------------
+--    v_rec_error.error_text := apex_json.get_varchar2(p_path=>'errorText');
 
     return v_rec_error;
 
