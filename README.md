@@ -11,7 +11,7 @@
 For expected errors (validations typically), the format of the message returned to the caller when issued through raiser will always have:
 
  - SQLCODE = -20763
- - SQLERRM = {"loggerID":143,"errorID":1234,"errorText":"you put in bad data, please do not do that"}
+ - SQLERRM = {"loggerID":143,"errorID":1234,"errorText":"You put in bad data, please do not do that"}
 
 As you can see, the SQLERRM error message has the unique Logger ID from logger, your given (arbitrary) Error ID and Error Text in a JSON object format (as text) for easier application interoperability.  Different calling apps (java, javascript, APEX, python, pl/sql, etc.) will be able to parse this message and display it properly to the user, i.e.
 
@@ -101,11 +101,11 @@ end;
 Which will yield the following results:
 ``` plsql
 Error report -
-ORA-20723: {"loggerID":16383,"errorID":1234,"errorText":"helpful text that will give this error some context"}
+ORA-20723: {"loggerID":16387,"errorID":1234,"errorText":"You put in bad data, don't do that"}
 ORA-06512: at "ODSFT.RAISER_DEMO", line 37
 ORA-06512: at line 3
 ```
-To execute the above procedure to yield an "unanticipated" exception (i.e. you forgot something, somewhere in your code and you want to catch and raise it to end users), run the following code snippet (after compiling the above):
+To execute the above procedure to yield an "unanticipated" exception (i.e. you forgot something, somewhere in your code and you want to catch and raise it to end users), run the following code snippet, which will get past the string validation, but hit a div 0 oracle exception:
 ``` plsql
 begin
   raiser_demo (p_some_parameter_to_validate => 'some string that is ok to continue');
