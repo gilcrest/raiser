@@ -20,7 +20,7 @@ As you can see, the SQLERRM error message has the unique Logger ID from logger, 
 If an unexpected exception occurs, the calling application will receive the same SQLCODE, however, this time the Oracle SQLCODE will be present in the "errID:" field with a negative integer 
 
  - SQLCODE = -20763
- - SQLERRM = {"loggerID":144,"errorID":-1476,"errorText":"divisor is equal to zero"}
+ - SQLERRM = {"loggerID":16381,"errorID":-1476,"errorText":"divisor is equal to zero"}
 
 In this case, the calling application can return an error message, such as "An unexpected error has occurred, the unique error message ID is 144, please contact support referencing this ID."
 
@@ -40,6 +40,7 @@ create or replace procedure raiser_demo (p_some_parameter_to_validate IN varchar
 
   --// constants
   c_0                     CONSTANT number := 0;
+  c_scope                 CONSTANT varchar2(20) := 'raiser_demo';
 
   --// local variables
   v_result                         number;
@@ -53,7 +54,7 @@ begin
   if (p_some_parameter_to_validate != 'some string that is ok to continue') then
     raiser.raise_anticipated_exception (
       p_text => 'helpful text that will give this error some context',
-      p_scope => 'raiser_demo',
+      p_scope => c_scope,
       p_error_id => 1234);
   end if;
 
@@ -82,8 +83,42 @@ exception
   -- ------------------------------------------------------
   when others then
     raiser.raise_unanticipated_exception (
+      p_text => 'helpful text that will give this error some context',
+      p_scope => 'raiser_demo',
       p_sqlcode => SQLCODE,
       p_sqlerrm => SQLERRM);
 end;
 ```
 
+To execute the above procedure to yield an "anticipated" exception (i.e. - your end user called the procedure with bad data and you want to alert them to it), run the following code snippet (after compiling the above):
+
+``` plsql
+begin
+  raiser_demo (p_some_parameter_to_validate => 'bad string data');
+end;
+```
+
+Which will yield the following results:
+``` plsql
+Error report -
+ORA-20723: {"loggerID":16383,"errorID":1234,"errorText":"helpful text that will give this error some context"}
+ORA-06512: at "ODSFT.RAISER_DEMO", line 37
+ORA-06512: at line 3
+```
+To execute the above procedure to yield an "unanticipated" exception (i.e. you forgot something, somewhere in your code and you want to catch and raise it to end users), run the following code snippet (after compiling the above):
+``` plsql
+begin
+  raiser_demo (p_some_parameter_to_validate => 'some string that is ok to continue');
+end;
+```
+Which yields the following:
+``` plsql
+Error report -
+ORA-20723: {"loggerID":16385,"errorID":-1476,"errorText":"divisor is equal to zero"}
+ORA-06512: at "ODSFT.LOGGER", line 798
+ORA-06512: at "ODSFT.LOGGER", line 1222
+ORA-06512: at "ODSFT.RAISER", line 265
+ORA-06512: at "ODSFT.RAISER_DEMO", line 47
+ORA-01476: divisor is equal to zero
+ORA-06512: at line 2
+```
