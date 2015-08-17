@@ -253,17 +253,20 @@ create or replace PACKAGE BODY                                                  
     -- ---------------------------------------------------------------------------------------------------
     -- sqlerrm format: 'ORA-20723: {"loggerID":143,"errorID":-1476,"errorText":"divisor is equal to zero"}
     -- ---------------------------------------------------------------------------------------------------
-    dbms_output.put_line('p_sqlerrm = '||p_sqlerrm);
 
+    -- ---------------------------------------------------------------------------------------------------
+    -- Need to remove the "ORA-20723: " from the sqlerrm format, so want to substr from first curly
+    --   bracket to the end of the string
+    -- ---------------------------------------------------------------------------------------------------
     v_1st_curly_position := instr(p_sqlerrm,'{',1,1);
-
-    dbms_output.put_line('v_1st_curly_position = '||v_1st_curly_position);
 
     v_sqlerrm := substr(p_sqlerrm,v_1st_curly_position);
 
-    dbms_output.put_line('v_sqlerrm = '||v_sqlerrm);
-
-    apex_json.parse(v_sqlerrm);
+    -- ---------------------------------------------------------------------------------------------------
+    -- use apex_json to parse the JSON string (using the varchar2 overloaded method)
+    --   not sure why strict = true is not working when I'm using apex to do the write... will open bug
+    -- ---------------------------------------------------------------------------------------------------
+    apex_json.parse(p_source => v_sqlerrm, p_strict => false);
 
     -- --------------------------------------------------------------------------------------------
     -- Get loggerID and set value in record
