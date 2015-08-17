@@ -84,7 +84,7 @@ exception
   when others then
     raiser.raise_unanticipated_exception (
       p_text => 'helpful text that will give this error some context',
-      p_scope => 'raiser_demo',
+      p_scope => c_scope,
       p_sqlcode => SQLCODE,
       p_sqlerrm => SQLERRM);
 end;
