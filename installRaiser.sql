@@ -1,14 +1,37 @@
-create or replace PACKAGE raiser AS
+create table logger_error_lkup 
+  (	pk_id                            number not null enable, 
+    error_category_name              varchar2(500 byte), 
+    error_id                         integer, 
+    error_short_description          varchar2(500 byte), 
+    error_long_description           varchar2(4000 byte), 
+    create_user_id                   varchar2(250) not null enable,
+    create_date                      timestamp(6)  not null enable, 
+    update_user_id                   varchar2(250) not null enable,
+    update_date                      timestamp(6)  not null enable, 
+ constraint logger_error_lkup_pk primary key (pk_id))
+/
+
+create table logger_error_xref 
+ (	logger_id number not null enable, 
+    error_id number, 
+    create_user_id varchar2(250 byte) not null enable, 
+    create_date timestamp (6) not null enable, 
+    update_user_id varchar2(250 byte) not null enable, 
+    update_date timestamp (6) not null enable, 
+ constraint logger_error_xref_pk primary key (logger_id))
+/
+
+create or replace PACKAGE       raiser AS
 
 --  Ver#    ---Date---  --- Done-By ---     ----- What-Was-Done -----------------------------------
---  1.00    22 Apr 2015 Dan Gillis          New Package
+--  1.00    13 Jul 2015 Dan Gillis          New Package
 --
 --  Purpose:
 --  1. Package allows you to raise an exception leveraging all of the logger functionality (through
 --       the logger PLUGIN_FN_ERROR plugin) as well as raise your own unique exception ID.  This
---       allows you not to be constrained by Oracle's -70000 to 70999 range - you define your own!
---       There are examples of how to use the package at PUT GITHUB ADDRESS HERE, as well as how to 
---       raise and catch an exception
+--       allows you not to be constrained by Oracle's -20000 to 20999 range - you define your own!
+--       There are examples of how to use the package at https://github.com/gilcrest/raiser, as 
+--       well as how to raise and catch an exception
 --
 
   type error_rt is record (
@@ -22,8 +45,9 @@ create or replace PACKAGE raiser AS
   procedure logger_raiser_plugin (p_rec in logger.rec_logger_log);
 
   -- ----------------------------------------------------------------------------------------------
-  -- Function takes in the SQLERRM from a thrown exception (using one of the raiser.rle procs)
-  -- as a varchar2 and parses it based on the consistent format used by raiser.rle
+  -- Function takes in the SQLERRM from a thrown exception (using either the 
+  --  raise_anticipated_exception or the raise_unanticipated_exception) as a varchar2 and parses 
+  --  it based on the consistent format used by both procedures
   -- ----------------------------------------------------------------------------------------------
   function getErrorDetails (p_sqlerrm in varchar2) return error_rt;
 
@@ -32,8 +56,8 @@ create or replace PACKAGE raiser AS
   --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
   --  the caller in the exception message as well as an optional persisted error message that is 
   --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
-  --   ID and the optional persistent lookup ID will start your exception message text using the 
-  --   following consistent format: |logID:1234|errID:5678|
+  --  ID and the optional persistent lookup ID will start your exception message text using the 
+  --  following consistent format: |logID:1234|errID:5678|you put in bad data, please don't do that
   -- ----------------------------------------------------------------------------------------------
   procedure raise_anticipated_exception (
     p_text                           in varchar2         default null,
@@ -47,8 +71,8 @@ create or replace PACKAGE raiser AS
   --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
   --  the caller in the exception message as well as an optional persisted error message that is 
   --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
-  --   ID and the optional persistent lookup ID will start your exception message text using the 
-  --   following consistent format: |logID:1234|errID:5678|
+  --  ID and the optional persistent lookup ID will start your exception message text using the 
+  --  following consistent format: |logID:75|errID:-1476|divisor is equal to zero
   -- ----------------------------------------------------------------------------------------------
   procedure raise_unanticipated_exception (
     p_text                           in varchar2         default null,
@@ -60,19 +84,59 @@ create or replace PACKAGE raiser AS
 
 end raiser;
 /
-create or replace PACKAGE BODY raiser AS
+create or replace PACKAGE BODY                                                                                                                                                                   raiser AS
 
 --  Ver#    ---Date---  --- Done-By ---     ----- What-Was-Done -----------------------------------
---  1.00    22 Apr 2015 Dan Gillis          New Package
+--  1.00    13 Jul 2015 Dan Gillis          New Package
 --
 --  Purpose:
---  1. Package to ...
+--  1. Package allows you to raise an exception leveraging all of the logger functionality (through
+--       the logger PLUGIN_FN_ERROR plugin) as well as raise your own unique exception ID.  This
+--       allows you not to be constrained by Oracle's -20000 to 20999 range - you define your own!
+--       There are examples of how to use the package at https://github.com/gilcrest/raiser, as 
+--       well as how to raise and catch an exception
 --
+
+  -- ------------------------------------------------------------------------------------------------
+  -- PRIVATE function to return a JSON object as a varchar2 for the error text as part of the raised
+  --  exception.  
+  --  Return is formatted as {"loggerID":123,"errorID":456,"errorText":"This is the error text"}
+  -- ------------------------------------------------------------------------------------------------
+  function getJSONerrorString (p_logger_id IN integer,
+                               p_error_id  IN integer,
+                               p_error_text IN varchar2)
+    return varchar2 AS
+
+  /* Variables */
+  v_errorString_varchar2           varchar2(4000);
+
+  /* Clobs */
+  v_errorString_clob               clob;
+  
+  begin
+
+    apex_json.initialize_clob_output;
+    apex_json.open_object();
+    apex_json.write('loggerID', p_logger_id);
+    apex_json.write('errorID', p_error_id);
+    apex_json.write('errorText', p_error_text);
+    apex_json.close_object();
+    v_errorString_clob := apex_json.get_clob_output;
+    apex_json.free_output;
+    
+    v_errorString_varchar2 := cast(v_errorString_clob as varchar2);
+    
+    return v_errorString_varchar2;
+    
+  end getJSONerrorString;
 
   -- ------------------------------------------------------------------------------------------------
   -- PRIVATE proc to insert error data into xref table 
   -- ------------------------------------------------------------------------------------------------
   procedure insert_logger_error_xref (p_logger_error_xref_rt IN logger_error_xref%rowtype) AS
+  
+    PRAGMA AUTONOMOUS_TRANSACTION;
+  
   begin
     insert into logger_error_xref (logger_id,
                                    error_id,
@@ -86,26 +150,26 @@ create or replace PACKAGE BODY raiser AS
                                     sysdate,
                                     p_logger_error_xref_rt.update_user_id,
                                     sysdate); 
-  end;
+    commit;
+  end insert_logger_error_xref;
 
   -- ----------------------------------------------------------------------------------------------
   -- proc is called by the logger.log_error PLUGIN_FN_ERROR plugin
   -- ----------------------------------------------------------------------------------------------
   procedure logger_raiser_plugin (p_rec in logger.rec_logger_log) AS
   
-  /* Local Variables */
-  v_error_text  varchar2(1000);
-
   /* Record Types */
   v_logger_logs_rt                 logger_logs%rowtype;
   v_logger_error_xref_rt           logger_error_xref%rowtype;
 
-  /* Variables */
+  /* Local Variables */
   v_error_id                       integer;
+  v_error_text                     varchar2(1000);
   v_1st_pipe_position              integer;
   v_2nd_pipe_position              integer;
-  v_substr_length                  integer;
-  v_text_minus_error_id            varchar2(1000);
+  v_3rd_pipe_position              integer;
+  v_errorID_substr_length          integer;
+  v_errorText_substr_length        integer;
   
   begin
     -- --------------------------------------------------------------------------------------------
@@ -117,20 +181,41 @@ create or replace PACKAGE BODY raiser AS
       from logger_logs
      where id = p_rec.id;
 
+    -- format is: |errorID|errorText|
+
     v_1st_pipe_position := instr(v_logger_logs_rt.text,'|',1,1);
     v_2nd_pipe_position := instr(v_logger_logs_rt.text,'|',1,2);
-    v_substr_length := (v_2nd_pipe_position - 1) - v_1st_pipe_position;
-    v_text_minus_error_id := substr(v_logger_logs_rt.text,v_2nd_pipe_position + 1);
+    v_3rd_pipe_position := instr(v_logger_logs_rt.text,'|',1,3);
 
     -- --------------------------------------------------------------------------------------------
-    -- Parse error ID form the logger_logs table - perhaps someday, we can add an error_id column
+    -- Get the length of the first chunk (from the 1st pipe to the 2nd) in order to be able to get
+    --  the error ID
+    -- --------------------------------------------------------------------------------------------
+    v_errorID_substr_length := (v_2nd_pipe_position - 1) - v_1st_pipe_position;
+
+    -- --------------------------------------------------------------------------------------------
+    -- Parse error ID from the logger_logs table - perhaps someday, we can add an error_id column
     --  to logger_logs, but until then, I have to bake the error id somewhere into the existing 
     --  data structure and pull it out via substr parsing
     -- --------------------------------------------------------------------------------------------
-    v_error_id := to_number(substr(v_logger_logs_rt.text,(v_1st_pipe_position + 1),v_substr_length));
+    v_error_id := to_number(substr(v_logger_logs_rt.text,
+                                   (v_1st_pipe_position + 1),
+                                   v_errorID_substr_length)
+                            );
 
     -- --------------------------------------------------------------------------------------------
-    -- For logger records that are logged through the rle procedure - 
+    -- Get the length of the 2nd chunk (from the 2nd pipe to the 3rd) in order to be able to get
+    --  the error text
+    -- --------------------------------------------------------------------------------------------
+    v_errorText_substr_length := (v_3rd_pipe_position - 1) - v_2nd_pipe_position;
+
+    -- --------------------------------------------------------------------------------------------
+    -- Pull the error text from the string
+    -- --------------------------------------------------------------------------------------------
+    v_error_text := substr(v_logger_logs_rt.text,v_2nd_pipe_position + 1,v_errorText_substr_length);
+
+    -- --------------------------------------------------------------------------------------------
+    -- For logger records that are logged through the procedure - 
     -- --------------------------------------------------------------------------------------------
     v_logger_error_xref_rt.logger_id := p_rec.id;
     v_logger_error_xref_rt.error_id := v_error_id;
@@ -138,16 +223,20 @@ create or replace PACKAGE BODY raiser AS
     v_logger_error_xref_rt.create_date := v_logger_logs_rt.time_stamp;
     v_logger_error_xref_rt.update_user_id := v_logger_logs_rt.user_name;
     v_logger_error_xref_rt.update_date := v_logger_logs_rt.time_stamp;
+
 --    dbms_output.put_line('Predefined Error: |logID:'||p_rec.id||'|errID:'||v_error_id||'|'||v_text_minus_error_id);
+
     insert_logger_error_xref(p_logger_error_xref_rt => v_logger_error_xref_rt);
-    commit;
-    raise_application_error(-20723,'|logID:'||p_rec.id||'|errID:'||v_error_id||'|'||v_text_minus_error_id);
+
+    raise_application_error(-20723,'{"loggerID":'||p_rec.id||',"errorID":'||v_error_id||',"errorText":"'||v_error_text||'"}');
 
   end logger_raiser_plugin;
 
   -- ---------------------------------------------------------------------------------------------
-  -- Function takes in the SQLERRM from a thrown exception (using the raiser.rle proc)
-  -- as a varchar2 and parses it based on the consistent format used by raiser.rle
+  -- Function takes in the SQLERRM as a varchar2 from a thrown exception, using either the 
+  --  raise_anticipated_exception or raise_unanticipated_exception procs
+  --  and parses it based on the consistent format used
+  -- TODO - this needs to use APEX_JSON.parse to parse this - will fix this ASAP
   -- ---------------------------------------------------------------------------------------------
   FUNCTION getErrorDetails (p_sqlerrm in varchar2) return error_rt AS
 
@@ -156,8 +245,10 @@ create or replace PACKAGE BODY raiser AS
                                
   begin
     dbms_output.put_line('p_sqlerrm = '||p_sqlerrm);
+    -- sqlerrm format: 'ORA-20723: {"loggerID":143,"errorID":-1476,"errorText":"divisor is equal to zero"}
 
-    v_rec_error.logger_id := substr(p_sqlerrm,instr(p_sqlerrm,'|',1,1)+7,instr(p_sqlerrm,'|',1,2)-instr(p_sqlerrm,'|',1,1)-7);
+      v_rec_error.logger_id := substr(p_sqlerrm,instr(p_sqlerrm,':',1,1)+1,instr(p_sqlerrm,',',1,1)-instr(p_sqlerrm,':',1,1));
+--    v_rec_error.logger_id := substr(p_sqlerrm,instr(p_sqlerrm,'|',1,1)+7,instr(p_sqlerrm,'|',1,2)-instr(p_sqlerrm,'|',1,1)-7);
     dbms_output.put_line('logger_id = '||v_rec_error.logger_id);
 
     begin
@@ -199,12 +290,14 @@ create or replace PACKAGE BODY raiser AS
   e_null_error_id                  exception;
 
   begin
+
     if (p_error_id is null) then
       raise e_null_error_id;
     end if;
     
     v_error_id := ('|'||p_error_id||'|');
-    logger.log_error(p_text => (v_error_id || p_text),
+
+    logger.log_error(p_text => (v_error_id || p_text ||'|'),
                      p_scope => p_scope,
                      p_extra => p_extra,
                      p_params => p_params);
@@ -234,12 +327,14 @@ create or replace PACKAGE BODY raiser AS
   /* Local Variables */
   v_sqlcode                        varchar2(100);
   v_sqlerrm                        varchar2(512); -- SQLERRM max length is 512 bytes
+  v_1st_colon_position             pls_integer;
 
   /* Exceptions */
   e_null_sqlcode                   exception;
   e_null_sqlerrm                   exception;
 
   begin
+
     if (p_sqlcode is null) then
       raise e_null_sqlcode;
     end if;
@@ -248,10 +343,12 @@ create or replace PACKAGE BODY raiser AS
       raise e_null_sqlerrm;
     end if;
     
+    v_1st_colon_position := instr(p_sqlerrm,':',1,1);
+    
     v_sqlcode := ('|'||to_char(p_sqlcode)||'|');
-    v_sqlerrm := substr(p_sqlerrm,1,512);
+    v_sqlerrm := substr(p_sqlerrm,(v_1st_colon_position + 2),512);
 
-    logger.log_error(p_text => (v_sqlcode || v_sqlerrm),
+    logger.log_error(p_text => (v_sqlcode || v_sqlerrm ||'|'|| p_text),
                      p_scope => p_scope,
                      p_extra => p_extra,
                      p_params => p_params);
@@ -264,7 +361,20 @@ create or replace PACKAGE BODY raiser AS
       then raise_application_error(-20000,'p_sqlerrm input parameter cannot be null, when using raise_unanticipated_exception');
 
   end raise_unanticipated_exception;
-  /
-  
 
 end raiser;
+/
+
+begin
+
+	update logger_prefs
+	  set pref_value = 'raiser.logger_raiser_plugin'
+	where 1=1
+	  and pref_name = 'PLUGIN_FN_ERROR';
+	
+	commit;
+	  
+	begin logger_configure; end;
+
+end;
+/
