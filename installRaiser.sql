@@ -1,7 +1,7 @@
 set serveroutput on
 declare
   /* Constants */
-  c_schema                    CONSTANT varchar2(30) := 'REPLACE';
+  c_schema                    CONSTANT varchar2(30) := 'ODSFT';
   /* Variables */
   v_exist                              varchar2(1) := 'N';
   /* Exceptions */
@@ -24,7 +24,7 @@ begin
       from dba_tables
      where owner = upper(c_schema)
        and table_name = 'LOGGER_ERROR_LKUP';
-
+       
     dbms_output.put_line('LOGGER_ERROR_LKUP Table already exists, will skip table creation');
 
   exception
@@ -34,17 +34,17 @@ begin
 
   if (v_exist = 'N') then
     dbms_output.put_line('LOGGER_ERROR_LKUP Table does not exist, will create table');
-    execute immediate
-      'create table '||c_schema||'.logger_error_lkup
-        ( pk_id                            number not null enable,
-          error_category_name              varchar2(500 byte),
-          error_id                         integer,
-          error_short_description          varchar2(500 byte),
-          error_long_description           varchar2(4000 byte),
+    execute immediate 
+      'create table '||c_schema||'.logger_error_lkup 
+        (	pk_id                            number not null enable, 
+          error_category_name              varchar2(500 byte), 
+          error_id                         integer, 
+          error_short_description          varchar2(500 byte), 
+          error_long_description           varchar2(4000 byte), 
           create_user_id                   varchar2(250) not null enable,
-          create_date                      timestamp(6)  not null enable,
+          create_date                      timestamp(6)  not null enable, 
           update_user_id                   varchar2(250) not null enable,
-          update_date                      timestamp(6)  not null enable,
+          update_date                      timestamp(6)  not null enable, 
        constraint logger_error_lkup_pk primary key (pk_id))';
 
     dbms_output.put_line('LOGGER_ERROR_LKUP Table created');
@@ -70,14 +70,14 @@ begin
 
   if (v_exist = 'N') then
     dbms_output.put_line('LOGGER_ERROR_XREF Table does not exist, will create table');
-    execute immediate
-      'create table '||c_schema||'.logger_error_xref
-       (  logger_id number not null enable,
-          error_id number,
-          create_user_id varchar2(250 byte) not null enable,
-          create_date timestamp (6) not null enable,
-          update_user_id varchar2(250 byte) not null enable,
-          update_date timestamp (6) not null enable,
+    execute immediate 
+      'create table '||c_schema||'.logger_error_xref 
+       (	logger_id number not null enable, 
+          error_id number, 
+          create_user_id varchar2(250 byte) not null enable, 
+          create_date timestamp (6) not null enable, 
+          update_user_id varchar2(250 byte) not null enable, 
+          update_date timestamp (6) not null enable, 
        constraint logger_error_xref_pk primary key (logger_id))';
 
     dbms_output.put_line('LOGGER_ERROR_LKUP Table created');
@@ -89,18 +89,19 @@ begin
 execute immediate 'create or replace PACKAGE '||c_schema||q'[.raiser AS
 
 --  Ver#    ---Date---  --- Done-By ---     ----- What-Was-Done -----------------------------------
---  1.00    13 Jul 2015 Dan Gillis          New Package
+--  0.70    13 Jul 2015 Dan Gillis          New Package
 --
 --  Purpose:
 --  1. Package allows you to raise an exception leveraging all of the logger functionality (through
 --       the logger PLUGIN_FN_ERROR plugin) as well as raise your own unique exception ID.  This
 --       allows you not to be constrained by Oracle's -20000 to 20999 range - you define your own!
---       There are examples of how to use the package at https://github.com/gilcrest/raiser, as
+--       There are examples of how to use the package at https://github.com/gilcrest/raiser, as 
 --       well as how to raise and catch an exception
 --
 
   type error_rt is record (
     logger_id                        logger_logs.id%type,
+    is_ora_error                     boolean,
     error_id                         logger_error_lkup.error_id%type,
     error_text                       varchar2(490));
 
@@ -110,36 +111,36 @@ execute immediate 'create or replace PACKAGE '||c_schema||q'[.raiser AS
   procedure logger_raiser_plugin (p_rec in logger.rec_logger_log);
 
   -- ----------------------------------------------------------------------------------------------
-  -- Function takes in the SQLERRM from a thrown exception (using either the
-  --  raise_anticipated_exception or the raise_unanticipated_exception) as a varchar2 and parses
+  -- Function takes in the SQLERRM from a thrown exception (using either the 
+  --  raise_anticipated_exception or the raise_unanticipated_exception) as a varchar2 and parses 
   --  it based on the consistent format used by both procedures
   -- ----------------------------------------------------------------------------------------------
   function getErrorDetails (p_sqlerrm in varchar2) return error_rt;
 
   -- ----------------------------------------------------------------------------------------------
   -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
-  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to
-  --  the caller in the exception message as well as an optional persisted error message that is
-  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger
-  --  ID and the optional persistent lookup ID will start your exception message text using the
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --  ID and the optional persistent lookup ID will start your exception message text using the 
   --  following consistent format: |logID:1234|errID:5678|you put in bad data, please don't do that
   -- ----------------------------------------------------------------------------------------------
-  procedure raise_anticipated_exception (
+  procedure raise_error (
     p_text                           in varchar2         default null,
     p_scope                          in varchar2         default null,
     p_extra                          in clob             default null,
     p_params                         in logger.tab_param default logger.gc_empty_tab_param,
     p_error_id                       in logger_error_lkup.error_id%type);
-
+    
   -- ----------------------------------------------------------------------------------------------
   -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
-  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to
-  --  the caller in the exception message as well as an optional persisted error message that is
-  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger
-  --  ID and the optional persistent lookup ID will start your exception message text using the
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --  ID and the optional persistent lookup ID will start your exception message text using the 
   --  following consistent format: |logID:75|errID:-1476|divisor is equal to zero
   -- ----------------------------------------------------------------------------------------------
-  procedure raise_unanticipated_exception (
+  procedure raise_ora_error (
     p_text                           in varchar2         default null,
     p_scope                          in varchar2         default null,
     p_extra                          in clob             default null,
@@ -153,24 +154,60 @@ end raiser;
 execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
 
 --  Ver#    ---Date---  --- Done-By ---     ----- What-Was-Done -----------------------------------
---  1.00    13 Jul 2015 Dan Gillis          New Package
+--  0.70    13 Jul 2015 Dan Gillis          New Package
 --
 --  Purpose:
 --  1. Package allows you to raise an exception leveraging all of the logger functionality (through
 --       the logger PLUGIN_FN_ERROR plugin) as well as raise your own unique exception ID.  This
 --       allows you not to be constrained by Oracle's -20000 to 20999 range - you define your own!
---       There are examples of how to use the package at https://github.com/gilcrest/raiser, as
+--       There are examples of how to use the package at https://github.com/gilcrest/raiser, as 
 --       well as how to raise and catch an exception
 --
 
   -- ------------------------------------------------------------------------------------------------
+  -- PRIVATE function to parse the JSON string out from the the logger_logs table
+  -- ------------------------------------------------------------------------------------------------
+  function parse_logger_text (p_logger_logs_rt IN logger_logs%rowtype)
+    return varchar2 AS
+
+  /* Variables */
+  v_rsr_tilde_position             integer;
+  v_json_start_bracket_position    integer;
+  v_end_of_json_position           integer;
+  v_json_end_bracket_position      integer;
+  v_JSONstring_substr_length       integer;
+  v_json_text                      varchar2(32767);
+
+  begin
+
+    v_rsr_tilde_position := instr(p_logger_logs_rt.text,'rsr~{',1,1);
+    v_json_start_bracket_position := instr(p_logger_logs_rt.text,'{',v_rsr_tilde_position,1);
+    v_end_of_json_position := instr(p_logger_logs_rt.text,'"e":0',1,1);
+    v_json_end_bracket_position := instr(p_logger_logs_rt.text,'}',v_end_of_json_position,1);
+
+    v_JSONstring_substr_length := ((v_json_end_bracket_position + 1) - v_json_start_bracket_position);
+
+    v_json_text := substr(p_logger_logs_rt.text,v_json_start_bracket_position,v_JSONstring_substr_length);
+    
+    return v_json_text;
+    
+  end parse_logger_text;
+
+  -- ------------------------------------------------------------------------------------------------
   -- PRIVATE function to return a JSON object as a varchar2 for the error text as part of the raised
-  --  exception.
-  --  Return is formatted as {"loggerID":123,"errorID":456,"errorText":"This is the error text"}
+  --  exception.  
+  --  Return is formatted as: 
+  --   {"loggerID":1623988,
+  --    "isORAerror":false,
+  --    "errorID":1234,
+  --    "errorText":"You put in bad data, don\u0027t do that"
+  --    }
   -- ------------------------------------------------------------------------------------------------
   function getJSONerrorString (p_logger_id IN integer,
                                p_error_id  IN integer,
-                               p_error_text IN varchar2)
+                               p_error_text IN varchar2,
+                               p_is_for_log IN boolean,
+                               p_is_ora_error IN boolean)
     return varchar2 AS
 
   /* Variables */
@@ -178,31 +215,44 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
 
   /* Clobs */
   v_errorString_clob               clob;
-
+  
   begin
 
     apex_json.initialize_clob_output;
     apex_json.open_object();
-    apex_json.write('loggerID', p_logger_id);
+
+    if (p_logger_id is not null) then
+      apex_json.write('loggerID', p_logger_id);
+    end if;
+
+    if (p_is_ora_error is not null) then
+      apex_json.write('isORAerror', p_is_ora_error);
+    end if;
+
     apex_json.write('errorID', p_error_id);
     apex_json.write('errorText', p_error_text);
+
+    if (p_is_for_log) then
+      apex_json.write('e',0); -- help denote the end of string when parsing out from log record
+    end if;
+
     apex_json.close_object();
     v_errorString_clob := apex_json.get_clob_output;
     apex_json.free_output;
-
+    
     v_errorString_varchar2 := cast(v_errorString_clob as varchar2);
-
+    
     return v_errorString_varchar2;
-
+    
   end getJSONerrorString;
 
   -- ------------------------------------------------------------------------------------------------
-  -- PRIVATE proc to insert error data into xref table
+  -- PRIVATE proc to insert error data into xref table 
   -- ------------------------------------------------------------------------------------------------
   procedure insert_logger_error_xref (p_logger_error_xref_rt IN logger_error_xref%rowtype) AS
-
+  
     PRAGMA AUTONOMOUS_TRANSACTION;
-
+  
   begin
     insert into logger_error_xref (logger_id,
                                    error_id,
@@ -215,7 +265,7 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
                                     p_logger_error_xref_rt.create_user_id,
                                     sysdate,
                                     p_logger_error_xref_rt.update_user_id,
-                                    sysdate);
+                                    sysdate); 
     commit;
   end insert_logger_error_xref;
 
@@ -223,24 +273,21 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
   -- proc is called by the logger.log_error PLUGIN_FN_ERROR plugin
   -- ----------------------------------------------------------------------------------------------
   procedure logger_raiser_plugin (p_rec in logger.rec_logger_log) AS
-
+  
   /* Record Types */
   v_logger_logs_rt                 logger_logs%rowtype;
   v_logger_error_xref_rt           logger_error_xref%rowtype;
 
   /* Local Variables */
+  v_JSON_string                    varchar2(32767);
   v_error_id                       integer;
-  v_error_text                     varchar2(1000);
-  v_1st_pipe_position              integer;
-  v_2nd_pipe_position              integer;
-  v_3rd_pipe_position              integer;
-  v_errorID_substr_length          integer;
-  v_errorText_substr_length        integer;
+  v_error_text                     varchar2(32767);
   v_sqlerrm                        varchar2(1000);
-
+  v_is_oracle_error                boolean;
+  
   begin
     -- --------------------------------------------------------------------------------------------
-    -- Get logger_logs record - eventually this step will be eliminated as the full logger_logs
+    -- Get logger_logs record - eventually this step will be eliminated as the full logger_logs 
     --   record type will be passed through as part of Logger enhancement #102
     -- --------------------------------------------------------------------------------------------
     select *
@@ -248,41 +295,38 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
       from logger_logs
      where id = p_rec.id;
 
-    -- format is: |errorID|errorText|
+    -- --------------------------------------------------------------------------------------------
+    -- If there is no rsr~{ characters in the logger text, then this is a regular logger.log_error 
+    --   call.  Program will "return" as we do not want to raise any error in this case...
+    --   logger.log_error calls should still function as originally designed (i.e., just log...)
+    -- --------------------------------------------------------------------------------------------
+    if (instr(v_logger_logs_rt.text,'rsr~{',1,1) = 0) then
+      return;
+    end if;
 
-    v_1st_pipe_position := instr(v_logger_logs_rt.text,'|',1,1);
-    v_2nd_pipe_position := instr(v_logger_logs_rt.text,'|',1,2);
-    v_3rd_pipe_position := instr(v_logger_logs_rt.text,'|',1,3);
+    v_json_string := parse_logger_text (p_logger_logs_rt => v_logger_logs_rt);
 
-    -- --------------------------------------------------------------------------------------------
-    -- Get the length of the first chunk (from the 1st pipe to the 2nd) in order to be able to get
-    --  the error ID
-    -- --------------------------------------------------------------------------------------------
-    v_errorID_substr_length := (v_2nd_pipe_position - 1) - v_1st_pipe_position;
-
-    -- --------------------------------------------------------------------------------------------
-    -- Parse error ID from the logger_logs table - perhaps someday, we can add an error_id column
-    --  to logger_logs, but until then, I have to bake the error id somewhere into the existing
-    --  data structure and pull it out via substr parsing
-    -- --------------------------------------------------------------------------------------------
-    v_error_id := to_number(substr(v_logger_logs_rt.text,
-                                   (v_1st_pipe_position + 1),
-                                   v_errorID_substr_length)
-                            );
+    apex_json.parse(p_source => v_json_string, p_strict => true);
 
     -- --------------------------------------------------------------------------------------------
-    -- Get the length of the 2nd chunk (from the 2nd pipe to the 3rd) in order to be able to get
-    --  the error text
+    -- Get errorID
     -- --------------------------------------------------------------------------------------------
-    v_errorText_substr_length := (v_3rd_pipe_position - 1) - v_2nd_pipe_position;
+    v_error_id := apex_json.get_number(p_path => 'errorID');
 
     -- --------------------------------------------------------------------------------------------
-    -- Pull the error text from the string
+    -- Get errorText
     -- --------------------------------------------------------------------------------------------
-    v_error_text := substr(v_logger_logs_rt.text,v_2nd_pipe_position + 1,v_errorText_substr_length);
+    v_error_text := apex_json.get_varchar2(p_path => 'errorText');
 
     -- --------------------------------------------------------------------------------------------
-    -- For logger records that are logged through the procedure -
+    -- Get isORAerror
+    -- --------------------------------------------------------------------------------------------
+    v_is_oracle_error := apex_json.get_boolean(p_path => 'isORAerror');
+
+    -- --------------------------------------------------------------------------------------------
+    -- If parse and variable setting above is successful, write the xref record 
+    --   and raise the application error with JSON format for error text
+    --   TODO: Add Oracle Error
     -- --------------------------------------------------------------------------------------------
     v_logger_error_xref_rt.logger_id := p_rec.id;
     v_logger_error_xref_rt.error_id := v_error_id;
@@ -295,14 +339,16 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
 
     v_sqlerrm := getJSONerrorString (p_logger_id => p_rec.id,
                                      p_error_id => v_error_id,
-                                     p_error_text => v_error_text);
+                                     p_error_text => v_error_text,
+                                     p_is_for_log => false,
+                                     p_is_ora_error => v_is_oracle_error);
 
     raise_application_error(-20723,v_sqlerrm);
 
   end logger_raiser_plugin;
 
   -- ---------------------------------------------------------------------------------------------
-  -- Function takes in the SQLERRM as a varchar2 from a thrown exception, using either the
+  -- Function takes in the SQLERRM as a varchar2 from a thrown exception, using either the 
   --  raise_anticipated_exception or raise_unanticipated_exception procs
   --  and parses it based on the JSON format used as part of the logger_raiser_plugin
   -- ---------------------------------------------------------------------------------------------
@@ -311,16 +357,22 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
 
   /* Record Type */
   v_rec_error                      error_rt;
+
+  /* Variables */
   v_1st_curly_position             integer;
   v_sqlerrm                        varchar2(1000);
-
+  v_is_oracle_error                boolean;
+                               
   begin
 
     -- ---------------------------------------------------------------------------------------------------
-    -- sqlerrm format: 'ORA-20723: {"loggerID":143,"errorID":-1476,"errorText":"divisor is equal to zero"}
-    -- ---------------------------------------------------------------------------------------------------
-
-    -- ---------------------------------------------------------------------------------------------------
+    --  Return is formatted as: 
+    --   ORA-20723: {"loggerID":1623988,
+    --    "isORAerror":false,
+    --    "errorID":1234,
+    --    "errorText":"You put in bad data, don\u0027t do that"
+    --    }
+    --
     -- Need to remove the "ORA-20723: " from the sqlerrm format, so want to substr from first curly
     --   bracket to the end of the string
     -- ---------------------------------------------------------------------------------------------------
@@ -332,22 +384,27 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
     -- use apex_json to parse the JSON string (using the varchar2 overloaded method)
     --   not sure why strict = true is not working when I'm using apex to do the write... will open bug
     -- ---------------------------------------------------------------------------------------------------
-    apex_json.parse(p_source => v_sqlerrm, p_strict => false);
+    apex_json.parse(p_source => v_sqlerrm, p_strict => true);
 
     -- --------------------------------------------------------------------------------------------
     -- Get loggerID and set value in record
     -- --------------------------------------------------------------------------------------------
-    v_rec_error.logger_id := apex_json.get_number(p_path=>'loggerID');
+    v_rec_error.logger_id := apex_json.get_number(p_path => 'loggerID');
+
+    -- --------------------------------------------------------------------------------------------
+    -- Get isORAerror
+    -- --------------------------------------------------------------------------------------------
+    v_rec_error.is_ora_error := apex_json.get_boolean(p_path => 'isORAerror');
 
     -- --------------------------------------------------------------------------------------------
     -- Get errorID and set value in record
     -- --------------------------------------------------------------------------------------------
-    v_rec_error.error_id := apex_json.get_number(p_path=>'errorID');
+    v_rec_error.error_id := apex_json.get_number(p_path => 'errorID');
 
     -- --------------------------------------------------------------------------------------------
     -- Get errorText and set value in record
     -- --------------------------------------------------------------------------------------------
-    v_rec_error.error_text := apex_json.get_varchar2(p_path=>'errorText');
+    v_rec_error.error_text := apex_json.get_varchar2(p_path => 'errorText');
 
     return v_rec_error;
 
@@ -355,13 +412,13 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
 
   -- ------------------------------------------------------------------------------------------------
   -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
-  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to
-  --  the caller in the exception message as well as an optional persisted error message that is
-  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger
-  --   ID and the optional persistent lookup ID will start your exception message text using the
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --   ID and the optional persistent lookup ID will start your exception message text using the 
   --   following consistent format: |logID:1234|errID:5678|
   -- ------------------------------------------------------------------------------------------------
-  procedure raise_anticipated_exception (
+  procedure raise_error (
     p_text                           in varchar2         default null,
     p_scope                          in varchar2         default null,
     p_extra                          in clob             default null,
@@ -369,39 +426,51 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
     p_error_id                       in logger_error_lkup.error_id%type) AS
 
   /* Local Variables */
-  v_error_id                       varchar2(100);
+  v_error                          varchar2(32767);
+  v_JSON_error                     varchar2(32767);
 
   /* Exceptions */
   e_null_error_id                  exception;
+  e_no_rsr_tilde                   exception;
 
   begin
 
     if (p_error_id is null) then
       raise e_null_error_id;
+    elsif (instr(p_text,'rsr~',1,1) > 0) then
+      raise e_no_rsr_tilde;
     end if;
-
-    v_error_id := ('|'||p_error_id||'|');
-
-    logger.log_error(p_text => (v_error_id || p_text ||'|'),
+    
+    v_JSON_error := getjsonerrorstring(p_logger_id => null,
+                                       p_error_id => p_error_id,
+                                       p_error_text => p_text,
+                                       p_is_for_log => true,
+                                       p_is_ora_error => false);
+                                       
+    v_error := ('rsr~'||v_JSON_error);
+    
+    logger.log_error(p_text => v_error,
                      p_scope => p_scope,
                      p_extra => p_extra,
                      p_params => p_params);
 
   exception
-    when e_null_error_id
+    when e_null_error_id 
       then raise_application_error(-20000,'p_error_id input parameter cannot be null, when using raise_anticipated_exception');
+    when e_no_rsr_tilde 
+      then raise_application_error(-20001,'p_text input parameter cannot have "rsr~" within it');
 
-  end raise_anticipated_exception;
+  end raise_error;
 
   -- ------------------------------------------------------------------------------------------------
   -- Proc uses logger.log_error along with plugin to raise an exception to the caller as well
-  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to
-  --  the caller in the exception message as well as an optional persisted error message that is
-  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger
-  --   ID and the optional persistent lookup ID will start your exception message text using the
+  --  as log the error to the logger_logs table.  Allows for the logger unique ID to be passed to 
+  --  the caller in the exception message as well as an optional persisted error message that is 
+  --  defined in the PREDEFINED_ERROR_LKUP lookup table.  Both error message ID's (the unique logger 
+  --   ID and the optional persistent lookup ID will start your exception message text using the 
   --   following consistent format: |logID:1234|errID:5678|
   -- ------------------------------------------------------------------------------------------------
-  procedure raise_unanticipated_exception (
+  procedure raise_ora_error (
     p_text                           in varchar2         default null,
     p_scope                          in varchar2         default null,
     p_extra                          in clob             default null,
@@ -413,6 +482,8 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
   v_sqlcode                        varchar2(100);
   v_sqlerrm                        varchar2(512); -- SQLERRM max length is 512 bytes
   v_1st_colon_position             pls_integer;
+  v_JSON_error                     varchar2(32767);
+  v_error                          varchar2(32767);
 
   /* Exceptions */
   e_null_sqlcode                   exception;
@@ -427,45 +498,51 @@ execute immediate 'create or replace PACKAGE BODY '||c_schema||q'[.raiser AS
     if (p_sqlerrm is null) then
       raise e_null_sqlerrm;
     end if;
-
+    
     v_1st_colon_position := instr(p_sqlerrm,':',1,1);
-
-    v_sqlcode := ('|'||to_char(p_sqlcode)||'|');
     v_sqlerrm := substr(p_sqlerrm,(v_1st_colon_position + 2),512);
+    
+    v_JSON_error := getjsonerrorstring(p_logger_id => null,
+                                       p_error_id => p_sqlcode,
+                                       p_error_text => v_sqlerrm,
+                                       p_is_for_log => true,
+                                       p_is_ora_error => true);
 
-    logger.log_error(p_text => (v_sqlcode || v_sqlerrm ||'|'|| p_text),
+    v_error := ('rsr~'||v_JSON_error);
+
+    logger.log_error(p_text => v_error,
                      p_scope => p_scope,
                      p_extra => p_extra,
                      p_params => p_params);
 
   exception
-    when e_null_sqlcode
+    when e_null_sqlcode 
       then raise_application_error(-20000,'p_sqlcode input parameter cannot be null, when using raise_unanticipated_exception');
 
-    when e_null_sqlerrm
+    when e_null_sqlerrm 
       then raise_application_error(-20000,'p_sqlerrm input parameter cannot be null, when using raise_unanticipated_exception');
 
-  end raise_unanticipated_exception;
+  end raise_ora_error;
 
 end raiser;
 ]';
 
 begin
 
-  execute immediate
+	execute immediate 
   'update '||c_schema||q'[.logger_prefs
-      set pref_value = 'raiser.logger_raiser_plugin'
-    where 1 = 1
-      and pref_name = 'PLUGIN_FN_ERROR']';
+	    set pref_value = 'raiser.logger_raiser_plugin'
+	  where 1 = 1
+	    and pref_name = 'PLUGIN_FN_ERROR']';
+	
+	commit;
 
-  commit;
-
-  execute immediate 'begin '||c_schema||'.logger_configure; end;';
+	execute immediate 'begin '||c_schema||'.logger_configure; end;';
 
 end;
 
 begin
-  execute immediate 'begin '||c_schema||'.logger.status; end;';
+	execute immediate 'begin '||c_schema||'.logger.status; end;';
 end;
 
 exception
